@@ -1,15 +1,19 @@
+image: node:latest
 pages:
-  image: node:latest
   stage: deploy
+  cache:
+    key:
+      files:
+        - package-lock.json
+      prefix: npm
+    paths:
+      - node_modules/
   script:
-    - npm install --progress=false
+    - npm install
     - npm run build
-    - rm -rf public
-    - mkdir public
-    - cp -r dist/* public
+    - cp -a dist/. public/
   artifacts:
-    expire_in: 1 day
     paths:
       - public
-  only:
-    - main
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
