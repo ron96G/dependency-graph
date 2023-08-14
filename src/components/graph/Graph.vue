@@ -1,42 +1,20 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useStore } from 'vuex';
+import { computed, onMounted, reactive, ref, watch, type Ref } from 'vue';
 
+import type { GraphData, INode } from '@antv/g6';
 import G6, { Graph } from '@antv/g6';
-import type { INode, GraphData } from '@antv/g6';
 
-import { GraphHelper } from '../graph/graph-helper'
-import { GraphEventHelper } from '../graph/graph-events'
-import type { State } from '@/store';
+import { ALL_SELECTED_STATES, COLORS, SELECTED_STATE, SOURCE_SELECTED_STATE, STROKES, TARGET_SELECTED_STATE } from '@/constants';
+import { GraphEventHelper } from '../graph/graph-events';
+import { GraphHelper } from '../graph/graph-helper';
 
+const props = defineProps(['data'])
+const emit = defineEmits(['updated'])
 
-const store = useStore<State>()
+// Features
+const enabledFilterByCluster = false;
 
-const colors = [
-    '#BDD2FD',
-    '#BDEFDB',
-    '#C2C8D5',
-    '#FBE5A2',
-    '#F6C3B7',
-    '#B6E3F5',
-    '#D3C6EA',
-    '#FFD8B8',
-    '#AAD8D8',
-    '#FFD6E7',
-];
-const strokes = [
-    '#5B8FF9',
-    '#5AD8A6',
-    '#5D7092',
-    '#F6BD16',
-    '#E8684A',
-    '#6DC8EC',
-    '#9270CA',
-    '#FF9D4D',
-    '#269A99',
-    '#FF99C3',
-];
-
+let graph: Graph;
 let graphDataJSON: string = "";
 let graphHelper: GraphHelper;
 let graphEventHelper: GraphEventHelper;
@@ -77,12 +55,29 @@ const tooltip = new G6.Tooltip({
 });
 
 
+// TODO: not working correctly
+watch(() => props.data, async (newData) => {
+    if (graph && newData) {
+        await onData(graph, newData)
+    }
+}, {
+    deep: true,
+    immediate: true
+})
+
+
 const prepareDownload = () => {
     const blob = new Blob([graphDataJSON], { type: "application/json" })
     const url = window.URL.createObjectURL(blob);
     document.getElementById('download-button')!.setAttribute("href", url);
 }
-const onData = async (graph: Graph, data: GraphData) => {
+const onData = async (graph: Graph, rawData: GraphData) => {
+    const data: GraphData = JSON.parse(JSON.stringify({
+        nodes: rawData.nodes,
+        edges: rawData.edges,
+        combos: rawData.combos
+    }))
+
     let clusterId = 0;
     data.nodes?.forEach((node) => {
         if (node.cluster && clusterMap.get(node.cluster) === undefined) {
@@ -93,8 +88,8 @@ const onData = async (graph: Graph, data: GraphData) => {
         if (!node.style) {
             node.style = {};
         }
-        node.style.fill = colors[cid % colors.length];
-        node.style.stroke = strokes[cid % strokes.length];
+        node.style.fill = COLORS[cid % COLORS.length];
+        node.style.stroke = STROKES[cid % STROKES.length];
 
         if (node.packaging == 'pom') {
             node.type = "star"
@@ -122,10 +117,12 @@ const onData = async (graph: Graph, data: GraphData) => {
 
     localStorage.setItem("latest-graph", graphDataJSON)
     prepareDownload()
+
+    emit('updated')
 }
 
 onMounted(async () => {
-    const graph = new G6.Graph({
+    graph = new G6.Graph({
         container: 'container',
         width: window.innerWidth,
         height: window.innerHeight,
@@ -133,7 +130,7 @@ onMounted(async () => {
         layout: {
             type: 'comboCombined',
             center: [200, 200],     // The center of the graph by default
-            gpuEnabled: false,
+            gpuEnabled: false,      // Not supported
             workerEnabled: true,
         },
         plugins: [tooltip],
@@ -169,14 +166,28 @@ onMounted(async () => {
             }
         },
         nodeStateStyles: {
-            selected: {
-                stroke: '#000',
+            [SELECTED_STATE]: {
+                stroke: '#00000',
+                lineWidth: 3,
+            },
+            [TARGET_SELECTED_STATE]: {
+                stroke: '#82b446',
+                lineWidth: 3,
+            },
+            [SOURCE_SELECTED_STATE]: {
+                stroke: '#4682b4',
                 lineWidth: 3,
             },
         },
         edgeStateStyles: {
-            selected: {
-                stroke: 'steelblue',
+            [SELECTED_STATE]: {
+                stroke: '#4682b4',
+            },
+            [SOURCE_SELECTED_STATE]: {
+                stroke: '#4682b4',
+            },
+            [TARGET_SELECTED_STATE]: {
+                stroke: '#82b446',
             },
         },
     });
@@ -191,8 +202,8 @@ onMounted(async () => {
     graphEventHelper.updateSize()
     window.onresize = graphEventHelper.updateSize
 
-    await onData(graph, store.getters.getGraphData)
-
+    if (props.data)
+        await onData(graph, props.data)
 })
 
 
@@ -206,6 +217,7 @@ function filter(event: any) {
     if (!input || input == "") {
         graphHelper.toggleVisibilityAll(true)
     } else {
+        // TODO: improve this
         const patterns = input.split(" ")
         let items;
         if (patterns.length > 1) {
@@ -232,7 +244,7 @@ const state_hideNonSelected = ref(false)
 function hideNonSelected() {
     state_hideNonSelected.value = !state_hideNonSelected.value
     if (state_hideNonSelected.value) {
-        const nodes = graphHelper.findAllByState('selected', 'node')
+        const nodes = graphHelper.findAllByState('node', ...ALL_SELECTED_STATES)
         graphHelper.toggleVisibility(nodes, state_hideNonSelected.value)
     } else {
         graphHelper.toggleVisibilityAll(true)
@@ -246,11 +258,11 @@ const hideNonSelectedButtonText = computed(() => {
 
 
 function selectAll() {
-
+    graphHelper.selectAllVisible()
 }
 
-function deselectAll() {
-
+function unselectAll() {
+    graphHelper.unselectAll()
 }
 
 function resetAll() {
@@ -264,14 +276,24 @@ function resetAll() {
     <div id="wrapper">
         <div id="header">
             <scale-text-field @keyup.enter="filter" id="input-text" class="header-item"
-                label="Filter using Globbing"></scale-text-field>
+                label="Filter using Regex"></scale-text-field>
             <scale-button @click="showAll" class="header-item">{{ showAllButtonText }}</scale-button>
             <scale-button @click="hideNonSelected" class="header-item">{{ hideNonSelectedButtonText }}</scale-button>
-            <scale-button disabled @click="selectAll" class="header-item">Select all</scale-button>
-            <scale-button disabled @click="deselectAll" class="header-item">Deselect all</scale-button>
+            <scale-button @click="selectAll" class="header-item">Select all</scale-button>
+            <scale-button @click="unselectAll" class="header-item">Unselect all</scale-button>
             <scale-button @click="resetAll" class="header-item">Reset</scale-button>
             <scale-button class="header-item" id="download-button" download="my-dependencies.json">Download</scale-button>
         </div>
+
+        <div id="header">
+            <scale-dropdown-select v-if="enabledFilterByCluster" id="cluster-select" label="Filter by Cluster">
+                <scale-dropdown-select-item value="">None</scale-dropdown-select-item>
+                <template v-for="cluster in clusterMap.keys()">
+                    <scale-dropdown-select-item :value="cluster">{{ cluster }}</scale-dropdown-select-item>
+                </template>
+            </scale-dropdown-select>
+        </div>
+
         <div id="content">
             <div id="container" v-show="!loading"></div>
             <scale-loading-spinner size="large" text="Loading ..." v-show="loading"></scale-loading-spinner>
@@ -288,6 +310,7 @@ function resetAll() {
 }
 
 #header {
+    margin-top: 5px;
     display: flex;
 }
 
@@ -309,5 +332,9 @@ function resetAll() {
 
 .header-item {
     margin: 2px;
+}
+
+#cluster-select {
+    min-width: 20vw;
 }
 </style>

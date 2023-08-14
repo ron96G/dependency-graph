@@ -2,7 +2,36 @@ import { Gitlab } from '@gitbeaker/rest';
 import { POMParser } from './pom-parser';
 import { GraphData } from './formatter';
 
-export class GitlabHelper {
+
+export type Callback<T> = (payload: T) => void
+export type EventType = 'projects:log' | 'projects:import' | 'projects:data'
+
+export class EventEmitter<T> {
+    callbackMap = new Map<EventType, Array<Callback<T>>>
+
+    on(eventType: EventType, cb: Callback<T>) {
+        if (!this.callbackMap.has(eventType)) {
+            this.callbackMap.set(eventType, [])
+        }
+        this.callbackMap.get(eventType)?.push(cb)
+    }
+
+    emit(eventType: EventType, payload: T) {
+        if (!this.callbackMap.has(eventType)) {
+            return
+        }
+        const cbs = this.callbackMap.get(eventType)
+        cbs?.forEach(cb => cb(payload))
+    }
+}
+
+interface Event {
+    message: string
+    level: 'info' | 'warn' | 'error'
+    [key: string]: any
+}
+
+export class GitlabHelper extends EventEmitter<Event> {
     private gitlab;
     private readonly host: string = "https://gitlab.devops.telekom.de";
     private token: string;
@@ -13,6 +42,7 @@ export class GitlabHelper {
     public readonly regex?: RegExp;
 
     constructor(accessToken: string, groupId: string, limit = 20, matchPattern?: string) {
+        super();
         this.token = accessToken;
         this.groupId = groupId;
         this.limit = limit;
@@ -42,7 +72,10 @@ export class GitlabHelper {
     getAll = async () => {
         const date = new Date();
         date.setFullYear(date.getFullYear() - 1);
-        console.log(`Only selecting projects which have been updated before ${date.toISOString()}`)
+        this.emit('projects:log', {
+            message: `Only selecting projects which have been updated before ${date.toISOString()}`,
+            level: 'info'
+        })
 
         const allProjects = await this.gitlab.Groups.allProjects(this.groupId, {
             simple: true,
@@ -58,14 +91,25 @@ export class GitlabHelper {
             if (lastActivity >= date) {
                 return true
             }
-            console.log(`Ignored project '${p.name}' (${p.id}) due to inactivity (${lastActivity.toISOString()})'`)
+            this.emit('projects:log', {
+                message: `Ignored project '${p.name}' (${p.id}) due to inactivity (${lastActivity.toISOString()})'`,
+                level: 'info'
+            })
             return false
         })
 
         const pomFile = "pom.xml";
         const data = new GraphData()
-
+        const limit = Math.min(selectedProjects.length, this.limit)
         let count = 1
+
+        this.emit('projects:import', {
+            message: `Start with import from gitlab`,
+            level: 'info',
+            max: limit,
+            cur: count,
+        })
+
         for (const projectSchema of selectedProjects) {
             const {
                 name,
@@ -73,8 +117,11 @@ export class GitlabHelper {
                 http_url_to_repo
             } = projectSchema
 
-            if (count >= this.limit + 1) {
-                console.log(`Reached limit ${this.limit} with ${selectedProjects.length - this.limit} left`)
+            if (count >= limit + 1) {
+                this.emit('projects:log', {
+                    message: `Reached limit ${limit} with ${selectedProjects.length - limit} left`,
+                    level: 'warn'
+                })
                 break
             }
 
@@ -83,13 +130,31 @@ export class GitlabHelper {
                 continue
             }
 
-            console.log(`(${count}/${this.limit}) Found project '${name}' (${id}). Access under '${http_url_to_repo}'`)
+            count++
+
+            this.emit('projects:import', {
+                message: `Imported project`,
+                level: 'info',
+                max: limit,
+                cur: count,
+            })
+
+            this.emit('projects:log', {
+                message: `Found project '${name}' (${id}). Access under '${http_url_to_repo}'`,
+                level: 'info',
+                id: id,
+                name: name,
+                http_url_to_repo: http_url_to_repo,
+            })
 
             let rootPom;
             try {
                 rootPom = await this.gitlab.RepositoryFiles.show(id, pomFile, this.ref)
             } catch (e) {
-                console.log(`Failed to fetch pom file`)
+                this.emit('projects:log', {
+                    message: `Failed to fetch pom file for project'${name}' (${id}).`,
+                    level: 'warn'
+                })
                 continue // not a valid repo
             }
 
@@ -109,8 +174,13 @@ export class GitlabHelper {
 
             data.inject(...pomInfoCollection)
 
+            this.emit('projects:data', {
+                message: `Imported project`,
+                level: 'info',
+                data: data,
+            })
 
-            count++
+
         }
         return data;
     }

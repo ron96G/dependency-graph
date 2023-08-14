@@ -1,5 +1,5 @@
+import { ALL_SELECTED_STATES, SELECTED_STATE } from "@/constants";
 import type { Graph, INode, Item } from "@antv/g6";
-import { minimatch } from 'minimatch';
 
 export class GraphHelper {
 
@@ -25,12 +25,13 @@ export class GraphHelper {
         return this.findItem(id, 'edge')
     }
 
-    findAllByState = (state: string, type: 'node' | 'edge') => {
-        return this.graph.findAllByState(type, state)
+    findAllByState = (type: 'node' | 'edge', ...states: string[]) => {
+        return states.map(state => this.graph.findAllByState(type, state)).flat(1)
     }
 
     findAllWithPattern = (pattern: string, type: 'node' | 'edge') => {
-        return this.graph.findAll(type, item => minimatch(item.getID(), pattern))
+        const re = RegExp(pattern)
+        return this.graph.findAll(type, item => re.test(item.getID()))
     }
 
     findAllWithPatterns = (patterns: string[], type: 'node' | 'edge') => {
@@ -38,14 +39,33 @@ export class GraphHelper {
     }
 
     toggleVisibility = (items: Item[], visible = false) => {
-        const idLookup = new Map();
-        items.forEach(item => idLookup.set(item.getID(), true))
+        const nodeIdLookup = new Map();
+        const edgeIdLookup = new Map();
+
+        items.forEach(item => nodeIdLookup.set(item.getID(), true))
+
+        for (const item of items) {
+            if (item.getType() == 'node') {
+                const node = item as INode;
+                node.getOutEdges().forEach(edge => {
+                    if (nodeIdLookup.has(edge.getTarget().getID())) {
+                        edgeIdLookup.set(edge.getID(), true)
+                    }
+                })
+            }
+        }
+
         this.graph.getNodes().forEach(node => {
-            if (idLookup.has(node.getID())) {
+            if (nodeIdLookup.has(node.getID())) {
                 node.changeVisibility(visible)
+                node.getEdges()
+                    .filter(e => edgeIdLookup.has(e.getID()))
+                    .forEach(e => e.changeVisibility(visible))
             } else {
                 node.changeVisibility(!visible)
-                node.getEdges().forEach(e => e.changeVisibility(!visible))
+                node.getEdges()
+                    .filter(e => !edgeIdLookup.has(e.getID()))
+                    .forEach(e => e.changeVisibility(!visible))
             }
         })
     }
@@ -71,6 +91,24 @@ export class GraphHelper {
         return versions;
     }
 
+    selectAllVisible = () => {
+        return this.graph
+            .findAll('node', i => i.isVisible())
+            .map(i => i.setState(SELECTED_STATE, true))
+    }
+
+    unselectAll = () => {
+        this.findAllByState('node', ...ALL_SELECTED_STATES)
+            .forEach(item =>
+                item.clearStates(ALL_SELECTED_STATES)
+            )
+
+        this.findAllByState('edge', ...ALL_SELECTED_STATES)
+            .forEach(item =>
+                item.clearStates(ALL_SELECTED_STATES)
+            )
+    }
+
     findNodesWithMultipleVersions = (pattern?: string) => {
         let items: INode[];
         if (pattern) {
@@ -87,7 +125,7 @@ export class GraphHelper {
         for (let [node, versionsMap] of m) {
             if (versionsMap == undefined || versionsMap.size <= 1) {
                 m.delete(node)
-           }
+            }
         }
         return m
     }

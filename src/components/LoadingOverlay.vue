@@ -1,28 +1,32 @@
 
 <script setup lang="ts">
-import { onUnmounted, ref } from "vue";
-import { useStore } from "vuex";
-
-const store = useStore()
-let loading = ref(false)
-
-const unsubscribe = store.subscribe((mutation, state) => {
-    if (mutation.type === "updateLoading") {
-        console.log(`Changing loading`)
-        loading.value = mutation.payload
+const props = defineProps({
+    type: {
+        type: String,
+        default: 'spinner'
+    },
+    progress: Number,
+    show: {
+        type: Boolean,
+        default: true
     }
 })
 
-onUnmounted(() => {
-    unsubscribe()
-})
 </script>
 
 
 <template >
-    <div id="wrapper" v-if="loading">
+    <div id="wrapper" v-if="show">
         <div id="content">
-            <scale-loading-spinner size="large" text="Loading ..."></scale-loading-spinner>
+
+            <scale-loading-spinner v-if="props.type == 'spinner'" size="large" text="Loading ..."></scale-loading-spinner>
+
+            <scale-progress-bar v-if="props.type == 'progressbar'" :percentage="props.progress"
+                id="progress-bar"></scale-progress-bar>
+
+
+            <!-- Logging text -->
+
         </div>
     </div>
 </template>
@@ -37,9 +41,12 @@ onUnmounted(() => {
 
 #content {
     display: flex;
-
     justify-content: center;
     align-items: center;
     height: 80%;
+}
+
+#progress-bar {
+    width: 500px;
 }
 </style>

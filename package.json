@@ -13,11 +13,7 @@
     "@antv/g6": "^4.8.21",
     "@gitbeaker/rest": "^39.10.3",
     "@telekom/scale-components": "^3.0.0-beta.137",
-    "@types/micromatch": "^4.0.2",
-    "minimatch": "^9.0.3",
-    "vue": "^3.3.4",
-    "vuex": "^4.1.0",
-    "yaml": "^2.3.1"
+    "vue": "^3.3.4"
   },
   "devDependencies": {
     "@tsconfig/node18": "^18.2.0",

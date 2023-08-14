@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { useStore } from 'vuex';
+import { onMounted } from 'vue';
 import { GitlabHelper } from './gitlab-helper';
 
-const store = useStore()
+const emit = defineEmits(['progress', 'finished', 'data', 'logs'])
 
 let accessToken = ""
 let groupId = ""
@@ -25,22 +25,31 @@ async function startImport(e: any) {
         element?.setAttribute("invalid", "")
         element?.setAttribute("helper-text", valRes.message)
         return
-    } else {
-
     }
 
     const gitlabHelper = new GitlabHelper(accessToken, groupId, limit, matchPattern)
-    gitlabHelper.getAll()
-        .then(data => {
-            store.commit('updateLoading', false)
-            store.commit('updateGraphData', data)
-        })
-        .catch(err => {
-            store.commit('updateLoading', false)
-            alert("Failed to load with " + err)
-        })
+    emit('progress', 0)
 
-    store.commit('updateLoading', true)
+    gitlabHelper.on('projects:import', (payload) => {
+        const progress = Math.round(payload.cur / payload.max * 100)
+        emit('progress', progress)
+    })
+
+    gitlabHelper.on('projects:log', (payload) => {
+        emit('logs', payload.message)
+    })
+
+    gitlabHelper.on('projects:data', (payload) => {
+        emit('data', payload.data)
+    })
+
+    try {
+        await gitlabHelper.getAll()
+        emit('finished')
+
+    } catch (err) {
+        emit('finished', err)
+    }
 }
 
 async function uploadFile(e: Event) {
@@ -49,9 +58,19 @@ async function uploadFile(e: Event) {
         const uploadedFile = files[0]
         const text = await uploadedFile.text()
         const json = JSON.parse(text)
-        store.commit('updateGraphData', json)
+        emit('data', json)
+        emit('finished')
     }
 }
+
+
+onMounted(() => {
+    const latestGraph = localStorage.getItem("latest-graph")
+    if (latestGraph) {
+        emit('data', JSON.parse(latestGraph))
+        emit('finished')
+    }
+})
 </script>
 
 
@@ -73,7 +92,7 @@ async function uploadFile(e: Event) {
                 <scale-button class="content-footer-item" @click="startImport"> Go </scale-button>
 
                 <label for="file-upload" class="content-footer-item">
-                    <i class="fa fa-cloud-upload"></i> Upload
+                    Upload
                 </label>
                 <input type="file" class="content-footer-item" id="file-upload" @change="uploadFile">
             </div>
