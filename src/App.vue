@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, type Ref } from 'vue';
+import { onMounted, ref, type Ref } from 'vue';
 import Graph from './components/graph/Graph.vue';
 import ImportStart from './components/importer/ImportStart.vue';
 import LoadingOverlay from './components/LoadingOverlay.vue';
@@ -9,10 +9,11 @@ import type { GraphData } from './components/importer/formatter';
 
 const showNotifications: Ref<boolean> = ref(false)
 
-let showGraph: Ref<boolean> = ref(false)
-let progress: Ref<number> = ref(0)
-let loading: Ref<boolean> = ref(false)
-let data: Ref<GraphData | null> = ref(null)
+let showGraph: Ref<boolean> = ref(false);
+let progress: Ref<number> = ref(0);
+let loading: Ref<boolean> = ref(false);
+let data: Ref<GraphData | null> = ref(null);
+let logs: Ref<Array<String>> = ref([]);
 
 function onProgress(p: number) {
   loading.value = true
@@ -31,7 +32,7 @@ function onData(inData: GraphData) {
 }
 
 function onLogs(msg: String) {
-  console.log(msg)
+  logs.value.push(msg)
 }
 
 </script>
@@ -41,12 +42,12 @@ function onLogs(msg: String) {
     <LightDarkModeSwitch />
     <Notifications v-if="showNotifications" />
 
-    <LoadingOverlay v-if="loading" :progress="progress" type="progressbar" />
+    <LoadingOverlay v-if="loading" :progress="progress" type="progressbar" :logs="logs" />
 
     <ImportStart v-show="!showGraph && !loading" @progress="onProgress" @finished="onFinished" @data="onData"
       @logs="onLogs" />
 
-    <Graph v-if="showGraph" :data="data" /> <!-- Should be show to stream data to graph -->
+    <Graph v-if="showGraph" :data="data" />
 
   </main>
 </template>

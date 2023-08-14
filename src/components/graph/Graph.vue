@@ -306,7 +306,8 @@ function resetAll() {
 #wrapper {
     display: block;
     height: 100vh;
-    position: relative
+    position: relative;
+    overflow: hidden;
 }
 
 #header {
