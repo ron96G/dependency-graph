@@ -1,5 +1,5 @@
 import { Gitlab } from '@gitbeaker/rest';
-import { POMParser } from './pom-parser';
+import { POMParser, UNKNOWN_VALUE } from './pom-parser';
 import { GraphData } from './formatter';
 
 
@@ -160,15 +160,19 @@ export class GitlabHelper extends EventEmitter<Event> {
 
             const fileContent = atob(rootPom?.content);
             const pomInfoCollection = []
-            const parser = new POMParser(fileContent);
-            pomInfoCollection.push(parser.info)
+            const rootPomParser = new POMParser(fileContent);
+            // pomInfoCollection.push(rootPomParser.info)
 
-            const subPomCollection = await Promise.all(parser.subModulesNames.map(subModule => this.fetchFile(id, subModule + "/" + pomFile)))
+            const subPomCollection = await Promise.all(rootPomParser.subModulesNames.map(subModule => this.fetchFile(id, subModule + "/" + pomFile)))
 
             for (const subPom of subPomCollection) {
                 if (subPom == null) continue
                 const fileContent = atob(subPom?.content);
-                const parser = new POMParser(fileContent);
+                const parser = new POMParser(fileContent, {
+                    artifactId: rootPomParser.info.self?.artifactId || UNKNOWN_VALUE,
+                    groupId: rootPomParser.info.self?.groupId || UNKNOWN_VALUE,
+                    version: "latest"
+                });
                 pomInfoCollection.push(parser.info)
             }
 

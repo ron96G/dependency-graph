@@ -3,12 +3,14 @@ export interface IModuleInfo {
     groupId: string
     artifactId: string
     version: string
+
+    toString: () => string;
 }
 
 export interface IPOMInfo {
     packaging: string;
-    info: IModuleInfo;
-    parent: IModuleInfo;
+    self: IModuleInfo | null;
+    parent: IModuleInfo | null;
     dependencies: IModuleInfo[];
 }
 

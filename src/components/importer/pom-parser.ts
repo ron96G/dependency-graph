@@ -1,15 +1,17 @@
 import type { IModuleInfo, IPOMInfo } from "./types";
 
+export const UNKNOWN_VALUE = "unknown";
+
 export class POMInfo implements IPOMInfo {
     public packaging: string;
-    public info: ModuleInfo;
-    public parent: ModuleInfo;
-    public dependencies: ModuleInfo[];
+    public self: ModuleInfo | null; // info about the current module
+    public parent: ModuleInfo | null; // info about the parent of the current module
+    public dependencies: ModuleInfo[]; // info about all dependencies of the current module
 
     constructor() {
-        this.packaging = "unknown"
-        this.info = new ModuleInfo()
-        this.parent = new ModuleInfo()
+        this.packaging = UNKNOWN_VALUE
+        this.self = null
+        this.parent = null
         this.dependencies = []
     }
 }
@@ -19,10 +21,14 @@ export class ModuleInfo implements IModuleInfo {
     artifactId: string
     version: string
 
-    constructor(groupId?: string, artifactId?: string, version?: string) {
-        this.groupId = groupId || "unknown";
-        this.artifactId = artifactId || "unknown";
-        this.version = version || "unknown";
+    constructor(groupId: string, artifactId: string, version: string) {
+        this.groupId = groupId;
+        this.artifactId = artifactId;
+        this.version = version;
+    }
+
+    toString = (): string => {
+        return `${this.groupId}_${this.artifactId}_${this.version}`
     }
 }
 
@@ -34,33 +40,39 @@ export class POMParser {
     public properties: Map<string, string>;
     public info: POMInfo;
 
+    public defaults: ModuleInfo;
 
-    constructor(rawXML: string) {
+    constructor(rawXML: string, defaults?: ModuleInfo | null) {
         this.xmlDoc = POMParser.parser.parseFromString(rawXML, "text/xml")
         this.subModulesNames = this.getModules()
         this.properties = this.getProperties()
 
+        this.defaults = defaults || new ModuleInfo(UNKNOWN_VALUE, UNKNOWN_VALUE, UNKNOWN_VALUE)
         this.info = new POMInfo()
-        this.info.packaging = this.getRootValue("packaging") || "unknown"
-        this.info.info = this.getInfo()
+        this.info.packaging = this.getRootValue("packaging") || UNKNOWN_VALUE
+        this.info.self = this.getInfo()
         this.info.parent = this.getParentInfo()
         this.info.dependencies = this.getDependencies()
     }
 
     private parseRawModuleInfo = (element: Element): ModuleInfo => {
-        const info = new ModuleInfo()
+        const info = new ModuleInfo(this.defaults.groupId, this.defaults.artifactId, this.defaults.version)
 
         for (const child of element.childNodes) {
             if (child.nodeName.startsWith("#")) continue
-            if (child.nodeName === "groupId") info.groupId = this.resolveFromProperties(child.textContent);
-            if (child.nodeName === "artifactId") info.artifactId = this.resolveFromProperties(child.textContent);
-            if (child.nodeName === "version") info.version = this.resolveFromProperties(child.textContent);
+            if (child.nodeName === "groupId")
+                info.groupId = this.resolveFromProperties(child.textContent, this.defaults.groupId);
+            if (child.nodeName === "artifactId")
+                info.artifactId = this.resolveFromProperties(child.textContent, this.defaults.artifactId);
+            if (child.nodeName === "version")
+                info.version = this.resolveFromProperties(child.textContent, this.defaults.version);
         }
         return info;
     }
 
-    private resolveFromProperties = (key: string | null | undefined, def = "unknown"): string => {
+    private resolveFromProperties = (key?: string | null, def = UNKNOWN_VALUE): string => {
         if (!key) return def
+        key = key.trim()
         if (!key.startsWith("${")) return key
 
         const cleanKey = key.replace("${", "").replace("}", "")
@@ -82,7 +94,7 @@ export class POMParser {
         return propertyMap;
     }
 
-    private getRootValue = (name: string, ensure = false, def = "unknown") => {
+    private getRootValue = (name: string, ensure = false, def = UNKNOWN_VALUE) => {
         const elements = this.xmlDoc.getElementsByTagName(name)
 
         if (elements.length == 0) {
@@ -96,10 +108,11 @@ export class POMParser {
         return def
     }
 
-    getParentInfo = (): IModuleInfo => {
+    getParentInfo = (): IModuleInfo | null => {
         const parent = this.xmlDoc.getElementsByTagName('parent')
         if (parent.length != 1) {
-            return new ModuleInfo()
+            console.log(`Module ${this.info.self?.toString()} has no parent`)
+            return null
         }
         return this.parseRawModuleInfo(parent[0]);
     }
@@ -130,9 +143,9 @@ export class POMParser {
 
     getInfo = (): IModuleInfo => {
         return new ModuleInfo(
-            this.getRootValue("groupId"),
-            this.getRootValue("artifactId"),
-            this.getRootValue("version"),
+            this.getRootValue("groupId", false, this.defaults.groupId),
+            this.getRootValue("artifactId", false, this.defaults.artifactId),
+            this.getRootValue("version", false, this.defaults.version),
         )
     }
 }

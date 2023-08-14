@@ -42,12 +42,17 @@ export class GraphData implements IGraphData {
 
     inject = (...poms: IPOMInfo[]) => {
         for (const pom of poms) {
-            const id = makeId(pom.info);
-            this.nodesLookup.set(id, new Node(pom.info, pom.packaging))
-
-            const parentId = makeId(pom.parent)
-            this.nodesLookup.set(parentId, new Node(pom.parent, pom.packaging, "parent"))
-            pom.dependencies.push(pom.parent)
+            if (pom.self == null) {
+                console.log('Ignoring null pom')
+                continue
+            }
+            const id = makeId(pom.self);
+            this.nodesLookup.set(id, new Node(pom.self, pom.packaging))
+            if (pom.parent) {
+                const parentId = makeId(pom.parent)
+                this.nodesLookup.set(parentId, new Node(pom.parent, pom.packaging, "parent"))
+                pom.dependencies.push(pom.parent)
+            }
 
             for (const dependency of pom.dependencies) {
                 const depId = makeId(dependency)
