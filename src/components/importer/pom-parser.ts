@@ -1,12 +1,13 @@
+import { SemVer } from "../semver";
 import type { IModuleInfo, IPOMInfo } from "./types";
 
 export const UNKNOWN_VALUE = "unknown";
 
 export class POMInfo implements IPOMInfo {
     public packaging: string;
-    public self: ModuleInfo | null; // info about the current module
-    public parent: ModuleInfo | null; // info about the parent of the current module
-    public dependencies: ModuleInfo[]; // info about all dependencies of the current module
+    public self: IModuleInfo | null; // info about the current module
+    public parent: IModuleInfo | null; // info about the parent of the current module
+    public dependencies: IModuleInfo[]; // info about all dependencies of the current module
 
     constructor() {
         this.packaging = UNKNOWN_VALUE
@@ -40,9 +41,9 @@ export class POMParser {
     public properties: Map<string, string>;
     public info: POMInfo;
 
-    public defaults: ModuleInfo;
+    public defaults: IModuleInfo;
 
-    constructor(rawXML: string, defaults?: ModuleInfo | null) {
+    constructor(rawXML: string, defaults?: IModuleInfo | null) {
         this.xmlDoc = POMParser.parser.parseFromString(rawXML, "text/xml")
         this.subModulesNames = this.getModules()
         this.properties = this.getProperties()

@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { onMounted, ref, type Ref } from 'vue';
+import { ref, type Ref } from 'vue';
 import Graph from './components/graph/Graph.vue';
 import ImportStart from './components/importer/ImportStart.vue';
 import LoadingOverlay from './components/LoadingOverlay.vue';
 import LightDarkModeSwitch from './components/LightDarkModeSwitch.vue';
 import Notifications from './components/Notifications.vue';
 import type { GraphData } from './components/importer/formatter';
-
-const showNotifications: Ref<boolean> = ref(false)
+import type { Event } from './components/common';
 
 let showGraph: Ref<boolean> = ref(false);
 let progress: Ref<number> = ref(0);
 let loading: Ref<boolean> = ref(false);
 let data: Ref<GraphData | null> = ref(null);
-let logs: Ref<Array<String>> = ref([]);
+let logs: Ref<Array<string>> = ref([]);
+let errors: Ref<Array<string>> = ref([])
 
 function onProgress(p: number) {
   loading.value = true
@@ -23,7 +23,6 @@ function onProgress(p: number) {
 function onFinished() {
   loading.value = false
   showGraph.value = true
-  console.log("finished")
 }
 
 function onData(inData: GraphData) {
@@ -31,8 +30,14 @@ function onData(inData: GraphData) {
     data.value = inData
 }
 
-function onLogs(msg: String) {
-  logs.value.push(msg)
+function onLogs(e: Event) {
+  console.log(`${e.level}: ${e.message}`)
+  if (e.level === 'error') {
+    console.log('received error')
+    errors.value.push(e.message)
+  } else {
+    logs.value.push(`${e.level}: ${e.message}`)
+  }
 }
 
 </script>
@@ -40,14 +45,14 @@ function onLogs(msg: String) {
 <template>
   <main>
     <LightDarkModeSwitch />
-    <Notifications v-if="showNotifications" />
+    <Notifications :in-errors="errors" />
 
     <LoadingOverlay v-if="loading" :progress="progress" type="progressbar" :logs="logs" />
 
     <ImportStart v-show="!showGraph && !loading" @progress="onProgress" @finished="onFinished" @data="onData"
-      @logs="onLogs" />
+      @logs="onLogs" @errors="onLogs" />
 
-    <Graph v-if="showGraph" :data="data" />
+    <Graph v-if="showGraph" :data="data" @errors="onLogs" />
 
   </main>
 </template>

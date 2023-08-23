@@ -4,12 +4,13 @@ import { computed, onMounted, reactive, ref, watch, type Ref } from 'vue';
 import type { GraphData, INode } from '@antv/g6';
 import G6, { Graph } from '@antv/g6';
 
-import { ALL_SELECTED_STATES, COLORS, SELECTED_STATE, SOURCE_SELECTED_STATE, STROKES, TARGET_SELECTED_STATE } from '@/constants';
+import { ALL_SELECTED_STATES, COLORS, SELECTED_STATE, SOURCE_SELECTED_STATE, STROKES, TARGET_SELECTED_STATE, STORAGE_KEY_LATEST_GRAPH } from '@/constants';
 import { GraphEventHelper } from '../graph/graph-events';
 import { GraphHelper } from '../graph/graph-helper';
+import { Search } from './search';
 
 const props = defineProps(['data'])
-const emit = defineEmits(['updated'])
+const emit = defineEmits(['updated', 'errors'])
 
 // Features
 const enabledFilterByCluster = false;
@@ -20,6 +21,9 @@ let graphHelper: GraphHelper;
 let graphEventHelper: GraphEventHelper;
 const clusterMap = new Map();
 let loading = ref(true);
+
+const state_showAll = ref(true)
+const state_hideNonSelected = ref(false)
 
 const tooltip = new G6.Tooltip({
     getContent(e) {
@@ -78,6 +82,13 @@ const onData = async (graph: Graph, rawData: GraphData) => {
         combos: rawData.combos
     }))
 
+    graphDataJSON = JSON.stringify({
+        "nodes": data.nodes,
+        "edges": data.edges
+    }, null, 2);
+
+    localStorage.setItem(STORAGE_KEY_LATEST_GRAPH, graphDataJSON)
+
     let clusterId = 0;
     data.nodes?.forEach((node) => {
         if (node.cluster && clusterMap.get(node.cluster) === undefined) {
@@ -110,12 +121,7 @@ const onData = async (graph: Graph, rawData: GraphData) => {
         node.getModel().versions = Array.from(versions.keys())
     }
 
-    graphDataJSON = JSON.stringify({
-        "nodes": data.nodes,
-        "edges": data.edges
-    }, null, 2);
 
-    localStorage.setItem("latest-graph", graphDataJSON)
     prepareDownload()
 
     emit('updated')
@@ -213,24 +219,41 @@ onMounted(async () => {
 */
 
 function filter(event: any) {
-    const input = event.target.value;
-    if (!input || input == "") {
-        graphHelper.toggleVisibilityAll(true)
-    } else {
-        // TODO: improve this
-        const patterns = input.split(" ")
-        let items;
-        if (patterns.length > 1) {
-            items = graphHelper.findAllWithPatterns(patterns, 'node')
+    try {
+        const input = event.target.value;
+        if (!input || input == "") {
+            graphHelper.toggleVisibilityAll(true)
+
         } else {
-            items = graphHelper.findAllWithPattern(patterns[0], 'node')
+            const search = new Search(input)
+            console.log(search)
+            let items;
+
+            if (search.patterns.length == 0 && search.versions.length > 0) {
+                search.patterns.push(".*")
+            }
+
+            items = graphHelper.findAllWithPattern(search.patterns[0], 'node')
+
+            if (state_hideNonSelected.value) {
+                items = graphHelper.filterByStates(items, ...ALL_SELECTED_STATES)
+            }
+
+            if (search.versions.length > 0) {
+                for (const versionSearch of search.versions) {
+                    items = graphHelper.filterByVersion(items, versionSearch.operator, versionSearch.version)
+                }
+            }
+
+            graphHelper.toggleVisibility(items, true)
         }
-        graphHelper.toggleVisibility(items, true)
+    } catch (e: unknown) {
+        emit('errors', {
+            level: 'error',
+            message: e
+        })
     }
-
 }
-
-const state_showAll = ref(true)
 
 const showAll = () => {
     state_showAll.value = !state_showAll.value
@@ -240,7 +263,6 @@ const showAllButtonText = computed(() => {
     return state_showAll.value ? 'Hide All' : 'Show All'
 })
 
-const state_hideNonSelected = ref(false)
 function hideNonSelected() {
     state_hideNonSelected.value = !state_hideNonSelected.value
     if (state_hideNonSelected.value) {
@@ -266,7 +288,7 @@ function unselectAll() {
 }
 
 function resetAll() {
-    localStorage.clear()
+    localStorage.removeItem(STORAGE_KEY_LATEST_GRAPH)
     location.reload()
 }
 
@@ -338,4 +360,4 @@ function resetAll() {
 #cluster-select {
     min-width: 20vw;
 }
-</style>
+</style>./search

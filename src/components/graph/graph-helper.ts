@@ -1,5 +1,6 @@
-import { ALL_SELECTED_STATES, SELECTED_STATE } from "@/constants";
+import { ALL_SELECTED_STATES, SELECTED_STATE, LATEST_VALUE } from "@/constants";
 import type { Graph, INode, Item } from "@antv/g6";
+import { SemVer, type Operators, isOperator, findLastIndexOfOperator } from "../semver";
 
 export class GraphHelper {
 
@@ -36,6 +37,27 @@ export class GraphHelper {
 
     findAllWithPatterns = (patterns: string[], type: 'node' | 'edge') => {
         return patterns.map(pattern => this.findAllWithPattern(pattern, type)).flat(1)
+    }
+
+    filterByStates = (items: Array<Item>, ...states: string[]) => {
+        if (states.length == 0) return items;
+
+        return items.filter(item => {
+            return item.getStates().filter(state => states.includes(state)).length > 0
+        })
+    }
+
+    filterByVersion = (items: Array<Item>, operator: Operators, version: SemVer | LATEST_VALUE) => {
+        return items.filter(item => {
+            const rawVersion = (item.getModel().version || item.getModel().label) as string
+            if (version == LATEST_VALUE) {
+                return rawVersion == LATEST_VALUE
+
+            } else {
+                const itemVersion = new SemVer(rawVersion)
+                return SemVer.compare(itemVersion, operator, version)
+            }
+        })
     }
 
     toggleVisibility = (items: Item[], visible = false) => {

@@ -29,3 +29,10 @@ export const STROKES = [
     '#269A99',
     '#FF99C3',
 ];
+
+export const LATEST_VALUE = "latest";
+export type LATEST_VALUE = "latest";
+
+
+export const STORAGE_KEY_LATEST_GRAPH = "latest-graph";
+export const STORAGE_KEY_GITLAB_HOST = "gitlab-host"

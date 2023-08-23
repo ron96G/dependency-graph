@@ -1,34 +1,60 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import { GitlabHelper } from './gitlab-helper';
+import { STORAGE_KEY_GITLAB_HOST, STORAGE_KEY_LATEST_GRAPH } from '@/constants'
 
-const emit = defineEmits(['progress', 'finished', 'data', 'logs'])
+const emit = defineEmits(['progress', 'finished', 'data', 'logs', 'errors'])
 
+let gitlabHost = ref("")
 let accessToken = ""
 let groupId = ""
 let matchPattern = ""
 let limit = 50
 
 function validateInput() {
+    const ret = []
+    if (!accessToken || accessToken == "") {
+        ret.push({
+            elementId: "input-access-token",
+            message: "Access Token is a required field"
+        })
+    }
+
     if (!groupId || groupId == "") {
-        return {
+        ret.push({
             elementId: "input-group-id",
             message: "Group ID is a required field"
-        }
+        })
     }
+
+    return ret
 }
 
-async function startImport(e: any) {
+async function startImport() {
+    localStorage.setItem(STORAGE_KEY_GITLAB_HOST, gitlabHost.value)
+
     const valRes = validateInput()
-    if (valRes) {
-        const element = document.getElementById(valRes.elementId)
-        element?.setAttribute("invalid", "")
-        element?.setAttribute("helper-text", valRes.message)
+    if (valRes && valRes.length > 0) {
+        for (const val of valRes) {
+            const element = document.getElementById(val.elementId)
+            element?.setAttribute("invalid", "")
+            element?.setAttribute("helper-text", val.message)
+        }
         return
     }
 
-    const gitlabHelper = new GitlabHelper(accessToken, groupId, limit, matchPattern)
-    emit('progress', 0)
+    let gitlabHelper;
+
+    try {
+        gitlabHelper = new GitlabHelper(gitlabHost.value, accessToken, groupId, limit, matchPattern)
+
+    } catch (e) {
+        emit('errors', {
+            level: 'error',
+            message: e
+        })
+        return
+    }
 
     gitlabHelper.on('projects:import', (payload) => {
         const progress = Math.round(payload.cur / payload.max * 100)
@@ -36,7 +62,12 @@ async function startImport(e: any) {
     })
 
     gitlabHelper.on('projects:log', (payload) => {
-        emit('logs', payload.message)
+        if (payload.level == 'error') {
+            emit('errors', payload)
+        } else {
+            emit('logs', payload)
+        }
+
     })
 
     gitlabHelper.on('projects:data', (payload) => {
@@ -47,8 +78,11 @@ async function startImport(e: any) {
         await gitlabHelper.getAll()
         emit('finished')
 
-    } catch (err) {
-        emit('finished', err)
+    } catch (e) {
+        emit('errors', {
+            level: 'error',
+            message: e
+        })
     }
 }
 
@@ -65,11 +99,17 @@ async function uploadFile(e: Event) {
 
 
 onMounted(() => {
-    const latestGraph = localStorage.getItem("latest-graph")
+    const latestGraph = localStorage.getItem(STORAGE_KEY_LATEST_GRAPH)
     if (latestGraph) {
         emit('data', JSON.parse(latestGraph))
         emit('finished')
     }
+
+    const storedGitlabHost = localStorage.getItem(STORAGE_KEY_GITLAB_HOST)
+    if (storedGitlabHost) {
+        gitlabHost.value = storedGitlabHost
+    }
+
 })
 </script>
 
@@ -79,6 +119,9 @@ onMounted(() => {
     <div id="wrapper">
         <div id="content">
             <h1 class="content-item">Import Gitlab Repositories</h1>
+            <scale-text-field class="content-item" id="input-gitlab-host" label="Gitlab Host" v-model="gitlabHost"
+                @keyup.enter="startImport"></scale-text-field>
+
             <scale-text-field class="content-item" id="input-access-token" label="Access Token" type="password"
                 v-model="accessToken" @keyup.enter="startImport"></scale-text-field>
 

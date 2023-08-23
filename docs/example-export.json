@@ -1,0 +1,25 @@
+{
+    "nodes": [
+        {
+            "id": "<groupId>_<artifactId:my-module>",
+            "label": "my-module",
+            "version": "4.5.6",
+            "cluster": "<some clustering value>",
+            "packaging": "jar"
+        },
+        {
+            "id": "<groupId>_<artifactId:my-parent-pom>",
+            "label": "my-parent-pom",
+            "version": "1.2.3",
+            "cluster": "<some clustering value>",
+            "pomType": "parent"
+        }
+    ],
+    "edges": [
+        {
+            "source": "<groupId>_<artifactId:my-parent-pom>",
+            "target": "<groupId>_<artifactId:my-module>",
+            "label": "1.2.3"
+        }
+    ]
+}

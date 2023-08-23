@@ -1,39 +1,14 @@
 import { Gitlab } from '@gitbeaker/rest';
 import { POMParser, UNKNOWN_VALUE } from './pom-parser';
 import { GraphData } from './formatter';
+import { EventEmitter, type Event } from '../common';
 
 
-export type Callback<T> = (payload: T) => void
 export type EventType = 'projects:log' | 'projects:import' | 'projects:data'
-
-export class EventEmitter<T> {
-    callbackMap = new Map<EventType, Array<Callback<T>>>
-
-    on(eventType: EventType, cb: Callback<T>) {
-        if (!this.callbackMap.has(eventType)) {
-            this.callbackMap.set(eventType, [])
-        }
-        this.callbackMap.get(eventType)?.push(cb)
-    }
-
-    emit(eventType: EventType, payload: T) {
-        if (!this.callbackMap.has(eventType)) {
-            return
-        }
-        const cbs = this.callbackMap.get(eventType)
-        cbs?.forEach(cb => cb(payload))
-    }
-}
-
-interface Event {
-    message: string
-    level: 'info' | 'warn' | 'error'
-    [key: string]: any
-}
 
 export class GitlabHelper extends EventEmitter<Event> {
     private gitlab;
-    private readonly host: string = "https://gitlab.devops.telekom.de";
+    private readonly host: string;
     private token: string;
     private groupId: string;
     private ref: string = "main";
@@ -41,8 +16,9 @@ export class GitlabHelper extends EventEmitter<Event> {
     public readonly limit;
     public readonly regex?: RegExp;
 
-    constructor(accessToken: string, groupId: string, limit = 20, matchPattern?: string) {
+    constructor(host: string, accessToken: string, groupId: string, limit = 20, matchPattern?: string) {
         super();
+        this.host = host;
         this.token = accessToken;
         this.groupId = groupId;
         this.limit = limit;
@@ -53,7 +29,6 @@ export class GitlabHelper extends EventEmitter<Event> {
             host: this.host,
             token: this.token,
         })
-
     }
 
     private fetchFile(projectId: number, filePath: string, ensure = true) {
