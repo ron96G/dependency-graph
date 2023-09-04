@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import { GitlabHelper } from './gitlab-helper';
+import { onMounted, ref, type Ref } from 'vue';
+import { GitlabHelper } from '@/libs/importer/gitlab-helper';
 import { STORAGE_KEY_GITLAB_HOST, STORAGE_KEY_LATEST_GRAPH } from '@/constants'
 
 const emit = defineEmits(['progress', 'finished', 'data', 'logs', 'errors'])
@@ -10,6 +10,10 @@ let accessToken = ""
 let groupId = ""
 let matchPattern = ""
 let limit = 50
+
+interface PresetItem { name: string, href: string }
+
+let presets: Ref<Array<PresetItem>> = ref([])
 
 function validateInput() {
     const ret = []
@@ -97,28 +101,48 @@ async function uploadFile(e: Event) {
     }
 }
 
-
-onMounted(() => {
-    const latestGraph = localStorage.getItem(STORAGE_KEY_LATEST_GRAPH)
-    if (latestGraph) {
-        emit('data', JSON.parse(latestGraph))
-        emit('finished')
+async function fetchPresets(): Promise<Array<PresetItem>> {
+    const res = await fetch('/presets/index.json')
+    if (res.status === 200) {
+        return res.json()
     }
+    return []
+}
 
+async function selectPreset(item: PresetItem) {
+    const res = await fetch(item.href)
+    if (res.status === 200) {
+        emit('data', await res.json())
+        emit('finished')
+    } else {
+        emit('errors', {
+            level: 'error',
+            message: `failed to fetch preset ${item.name} (${item.href})`
+        })
+    }
+}
+
+onMounted(async () => {
     const storedGitlabHost = localStorage.getItem(STORAGE_KEY_GITLAB_HOST)
     if (storedGitlabHost) {
         gitlabHost.value = storedGitlabHost
     }
 
+
+    const latestGraph = localStorage.getItem(STORAGE_KEY_LATEST_GRAPH)
+    if (latestGraph) {
+        emit('data', JSON.parse(latestGraph))
+        emit('finished')
+    } else {
+        presets.value = await fetchPresets()
+    }
 })
 </script>
 
-
-
 <template>
     <div id="wrapper">
-        <div id="content">
-            <h1 class="content-item">Import Gitlab Repositories</h1>
+        <scale-card id="content" style="grid-column-start: 2; grid-row-start: 2;">
+            <h4 class="content-item-header">Import Gitlab Repositories </h4>
             <scale-text-field class="content-item" id="input-gitlab-host" label="Gitlab Host" v-model="gitlabHost"
                 @keyup.enter="startImport"></scale-text-field>
 
@@ -139,23 +163,31 @@ onMounted(() => {
                 </label>
                 <input type="file" class="content-footer-item" id="file-upload" @change="uploadFile">
             </div>
-        </div>
+        </scale-card>
+
+        <scale-card v-if="presets.length > 0" id="content" style="grid-column-start: 2; grid-row-start: 3;">
+            <h4 class="content-item-header">Reuse preset </h4>
+            <div id="table-wrapper">
+                <a class="table-item" v-for="preset in presets" :key="preset.name" @click="selectPreset(preset)">
+                    {{ preset.name }}
+                </a>
+            </div>
+        </scale-card>
     </div>
 </template>
 
 
 <style scoped>
 #wrapper {
-    display: block;
     position: relative;
+    display: grid;
+    grid-template-columns: 35vw 30vw 35vw;
+    grid-template-rows: 20vh 30vh 30vh 20vh;
 }
 
 #content {
     align-content: center;
     justify-content: center;
-    height: 100vh;
-    position: relative;
-    display: grid;
 }
 
 #content-footer {
@@ -166,7 +198,12 @@ onMounted(() => {
 
 .content-item {
     width: 20vw;
-    margin: 5px auto;
+    font: var(--telekom-text-style-body);
+}
+
+.content-item-header {
+    font: var(--telekom-text-style-heading-4);
+    margin: 0px 0 16px 0;
 }
 
 .content-footer-item {
@@ -190,5 +227,23 @@ label {
     opacity: 0;
     position: absolute;
     z-index: -1;
+}
+
+#table-wrapper {
+    display: grid;
+}
+
+.table-item {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 10px;
+}
+
+.table-item:hover {
+    background-color: var(--telekom-color-ui-regular);
+
+    border-radius: 15vw;
+    font-weight: bold;
+    cursor: pointer;
 }
 </style>

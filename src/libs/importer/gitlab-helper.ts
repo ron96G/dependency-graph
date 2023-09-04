@@ -135,7 +135,7 @@ export class GitlabHelper extends EventEmitter<Event> {
 
             const fileContent = atob(rootPom?.content);
             const pomInfoCollection = []
-            const rootPomParser = new POMParser(fileContent);
+            const rootPomParser = POMParser.fromString(fileContent);
             // pomInfoCollection.push(rootPomParser.info)
 
             const subPomCollection = await Promise.all(rootPomParser.subModulesNames.map(subModule => this.fetchFile(id, subModule + "/" + pomFile)))
@@ -143,7 +143,7 @@ export class GitlabHelper extends EventEmitter<Event> {
             for (const subPom of subPomCollection) {
                 if (subPom == null) continue
                 const fileContent = atob(subPom?.content);
-                const parser = new POMParser(fileContent, {
+                const parser = POMParser.fromString(fileContent, {
                     artifactId: rootPomParser.info.self?.artifactId || UNKNOWN_VALUE,
                     groupId: rootPomParser.info.self?.groupId || UNKNOWN_VALUE,
                     version: "latest"

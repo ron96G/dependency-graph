@@ -15,6 +15,7 @@ coverage
 *.local
 .env
 tmp
+public/presets
 
 /cypress/videos/
 /cypress/screenshots/

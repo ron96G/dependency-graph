@@ -5,8 +5,8 @@ import ImportStart from './components/importer/ImportStart.vue';
 import LoadingOverlay from './components/LoadingOverlay.vue';
 import LightDarkModeSwitch from './components/LightDarkModeSwitch.vue';
 import Notifications from './components/Notifications.vue';
-import type { GraphData } from './components/importer/formatter';
-import type { Event } from './components/common';
+import { type GraphData } from '@/libs/importer/formatter';
+import { type Event } from '@/libs/common';
 
 let showGraph: Ref<boolean> = ref(false);
 let progress: Ref<number> = ref(0);
@@ -67,4 +67,4 @@ function onLogs(e: Event) {
   -ms-user-select: none;
   user-select: none;
 }
-</style>
+</style>../lib/importer/formatter./libs/common

@@ -1,4 +1,3 @@
-import { SemVer } from "../semver";
 import type { IModuleInfo, IPOMInfo } from "./types";
 
 export const UNKNOWN_VALUE = "unknown";
@@ -34,7 +33,7 @@ export class ModuleInfo implements IModuleInfo {
 }
 
 export class POMParser {
-    private static parser = new DOMParser();
+    public static parser: DOMParser;
     private readonly xmlDoc: Document;
 
     public subModulesNames: string[]
@@ -43,8 +42,8 @@ export class POMParser {
 
     public defaults: IModuleInfo;
 
-    constructor(rawXML: string, defaults?: IModuleInfo | null) {
-        this.xmlDoc = POMParser.parser.parseFromString(rawXML, "text/xml")
+    constructor(xmlDoc: Document, defaults?: IModuleInfo | null) {
+        this.xmlDoc = xmlDoc
         this.subModulesNames = this.getModules()
         this.properties = this.getProperties()
 
@@ -56,10 +55,16 @@ export class POMParser {
         this.info.dependencies = this.getDependencies()
     }
 
+    public static fromString(rawXML: string, defaults?: IModuleInfo | null) {
+        if (POMParser.parser === undefined) {
+            POMParser.parser = new DOMParser();
+        }
+        return new POMParser(POMParser.parser.parseFromString(rawXML, "text/xml"), defaults)
+    }
     private parseRawModuleInfo = (element: Element): ModuleInfo => {
         const info = new ModuleInfo(this.defaults.groupId, this.defaults.artifactId, this.defaults.version)
 
-        for (const child of element.childNodes) {
+        for (const child of Array.from(element.childNodes)) {
             if (child.nodeName.startsWith("#")) continue
             if (child.nodeName === "groupId")
                 info.groupId = this.resolveFromProperties(child.textContent, this.defaults.groupId);
@@ -86,8 +91,8 @@ export class POMParser {
     private getProperties = (): Map<string, string> => {
         const propertyMap = new Map();
         const properties = this.xmlDoc.getElementsByTagName('properties')
-        for (const property of properties) {
-            for (const child of property.childNodes) {
+        for (const property of Array.from(properties)) {
+            for (const child of Array.from(property.childNodes)) {
                 if (child.nodeName.startsWith("#")) continue
                 propertyMap.set(child.nodeName, child.textContent)
             }
@@ -101,7 +106,7 @@ export class POMParser {
         if (elements.length == 0) {
             if (!ensure) return def
         }
-        for (const element of elements) {
+        for (const element of Array.from(elements)) {
             if (element.parentNode?.nodeName === "project") {
                 return element.textContent || def
             }
@@ -124,7 +129,7 @@ export class POMParser {
         if (element.length != 1) {
             return []
         }
-        for (const child of element[0].childNodes) {
+        for (const child of Array.from(element[0].childNodes)) {
             if (child.nodeName.startsWith("#")) continue
             if (child.textContent)
                 foundModules.push(child.textContent)
@@ -136,7 +141,7 @@ export class POMParser {
     getDependencies = (): IModuleInfo[] => {
         const moduleInfos: ModuleInfo[] = []
         const dependencies = this.xmlDoc.getElementsByTagName('dependency')
-        for (const dependency of dependencies) {
+        for (const dependency of Array.from(dependencies)) {
             moduleInfos.push(this.parseRawModuleInfo(dependency))
         }
         return moduleInfos;

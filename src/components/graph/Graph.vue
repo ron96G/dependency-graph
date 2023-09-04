@@ -5,9 +5,9 @@ import type { GraphData, INode } from '@antv/g6';
 import G6, { Graph } from '@antv/g6';
 
 import { ALL_SELECTED_STATES, COLORS, SELECTED_STATE, SOURCE_SELECTED_STATE, STROKES, TARGET_SELECTED_STATE, STORAGE_KEY_LATEST_GRAPH } from '@/constants';
-import { GraphEventHelper } from '../graph/graph-events';
-import { GraphHelper } from '../graph/graph-helper';
-import { Search } from './search';
+import { GraphEventHelper } from '@/libs/graph/graph-events';
+import { GraphHelper } from '@/libs/graph/graph-helper';
+import { Search } from '@/libs/graph/search';
 
 const props = defineProps(['data'])
 const emit = defineEmits(['updated', 'errors'])
@@ -360,4 +360,4 @@ function resetAll() {
 #cluster-select {
     min-width: 20vw;
 }
-</style>./search
+</style>./search../../libs/graph/search
