@@ -102,7 +102,7 @@ async function uploadFile(e: Event) {
 }
 
 async function fetchPresets(): Promise<Array<PresetItem>> {
-    const res = await fetch('/presets/index.json')
+    const res = await fetch('presets/index.json')
     if (res.status === 200) {
         return res.json()
     }

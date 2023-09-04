@@ -138,7 +138,7 @@ const main = async () => {
 
     indexData.push({
         name: name,
-        href: `/${OUTPUT_DIR}/${name}.json`
+        href: `${OUTPUT_DIR}/${name}.json`
     })
 
     fs.writeFileSync(INDEX_FILE, JSON.stringify(indexData))
