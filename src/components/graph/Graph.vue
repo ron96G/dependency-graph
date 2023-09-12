@@ -295,7 +295,7 @@ function resetAll() {
 </script>
 
 <template>
-    <div id="wrapper">
+    <div id="graph-wrapper">
         <div id="header">
             <scale-text-field @keyup.enter="filter" id="input-text" class="header-item"
                 label="Filter using Regex"></scale-text-field>
@@ -325,7 +325,7 @@ function resetAll() {
 
 
 <style scoped>
-#wrapper {
+#graph-wrapper {
     display: block;
     height: 100vh;
     position: relative;

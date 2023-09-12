@@ -17,6 +17,13 @@ let presets: Ref<Array<PresetItem>> = ref([])
 
 function validateInput() {
     const ret = []
+    if (!gitlabHost || gitlabHost.value == "") {
+        ret.push({
+            elementId: "input-gitlab-host",
+            message: "Gitlab Host is a required field"
+        })
+    }
+
     if (!accessToken || accessToken == "") {
         ret.push({
             elementId: "input-access-token",
@@ -94,10 +101,18 @@ async function uploadFile(e: Event) {
     const files = (e.target as any)?.files as File[]
     if (files && files.length >= 1) {
         const uploadedFile = files[0]
-        const text = await uploadedFile.text()
-        const json = JSON.parse(text)
-        emit('data', json)
-        emit('finished')
+        try {
+            const text = await uploadedFile.text()
+            const json = JSON.parse(text)
+            emit('data', json)
+            emit('finished')
+        } catch (e) {
+            emit('errors', {
+                level: 'error',
+                message: e
+            })
+        }
+
     }
 }
 
@@ -140,73 +155,111 @@ onMounted(async () => {
 </script>
 
 <template>
-    <div id="wrapper">
-        <scale-card id="content" style="grid-column-start: 2; grid-row-start: 2;">
-            <h4 class="content-item-header">Import Gitlab Repositories </h4>
-            <scale-text-field class="content-item" id="input-gitlab-host" label="Gitlab Host" v-model="gitlabHost"
-                @keyup.enter="startImport"></scale-text-field>
+    <div id="import-wrapper">
+        <ul id="content">
+            <li class="content-item">
+                <scale-card class="card" style="grid-column-start: 2; grid-row-start: 2;">
+                    <h4 class="card-header">Import Gitlab Repositories </h4>
 
-            <scale-text-field class="content-item" id="input-access-token" label="Access Token" type="password"
-                v-model="accessToken" @keyup.enter="startImport"></scale-text-field>
+                    <scale-text-field id="input-gitlab-host" label="Gitlab Host" v-model="gitlabHost"
+                        @keyup.enter="startImport"></scale-text-field>
 
-            <scale-text-field class="content-item" id="input-group-id" label="Group ID" v-model="groupId" required
-                @keyup.enter="startImport"></scale-text-field>
+                    <scale-text-field id="input-access-token" label="Access Token" type="password" v-model="accessToken"
+                        @keyup.enter="startImport"></scale-text-field>
 
-            <scale-text-field class="content-item" id="input-project-matcher" label="Project Pattern" v-model="matchPattern"
-                @keyup.enter="startImport"></scale-text-field>
+                    <scale-text-field id="input-group-id" label="Group ID" v-model="groupId" required
+                        @keyup.enter="startImport"></scale-text-field>
 
-            <div id="content-footer">
-                <scale-button class="content-footer-item" @click="startImport"> Go </scale-button>
+                    <scale-text-field id="input-project-matcher" label="Project Pattern" v-model="matchPattern"
+                        @keyup.enter="startImport"></scale-text-field>
 
-                <label for="file-upload" class="content-footer-item">
-                    Upload
-                </label>
-                <input type="file" class="content-footer-item" id="file-upload" @change="uploadFile">
-            </div>
-        </scale-card>
+                    <div class="card-footer">
+                        <scale-button class="card-footer-item" @click="startImport"> Go </scale-button>
 
-        <scale-card v-if="presets.length > 0" id="content" style="grid-column-start: 2; grid-row-start: 3;">
-            <h4 class="content-item-header">Reuse preset </h4>
-            <div id="table-wrapper">
-                <a class="table-item" v-for="preset in presets" :key="preset.name" @click="selectPreset(preset)">
-                    {{ preset.name }}
-                </a>
-            </div>
-        </scale-card>
+                        <label for="file-upload" class="card-footer-item">
+                            Upload
+                        </label>
+                        <input type="file" class="card-footer-item" id="file-upload" @change="uploadFile">
+                    </div>
+                </scale-card>
+            </li>
+            <li class="content-item">
+                <scale-card class="card" v-if="presets.length > 0" style="grid-column-start: 2; grid-row-start: 3;">
+                    <h4 class="card-header">Reuse preset </h4>
+                    <div id="table-wrapper">
+                        <a class="table-item" v-for="preset in presets" :key="preset.name" @click="selectPreset(preset)">
+                            {{ preset.name }}
+                        </a>
+                    </div>
+                </scale-card>
+            </li>
+        </ul>
     </div>
 </template>
 
 
 <style scoped>
-#wrapper {
+#import-wrapper {
+    max-width: 1200px;
+    margin: auto;
     position: relative;
-    display: grid;
-    grid-template-columns: 35vw 30vw 35vw;
-    grid-template-rows: 20vh 30vh 30vh 20vh;
+    top: 10rem;
+}
+
+@media only screen and (max-width: 700px) {
+    #import-wrapper {
+        top: 0;
+    }
 }
 
 #content {
-    align-content: center;
+    display: flex;
+    flex-wrap: wrap;
+    list-style: none;
+    margin: 0;
+    padding: 0;
     justify-content: center;
 }
 
-#content-footer {
+.content-item {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+@media (min-width: 40rem) {
+    .content-item {
+        width: 50%;
+    }
+}
+
+
+@media (min-width: 56rem) {
+    .content-item {
+        width: 33.3333%;
+    }
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 300px;
+}
+
+.card-header {
+    font: var(--telekom-text-style-heading-4);
+    margin: 0px 0 16px 0;
+}
+
+.card-footer {
     margin: 5px;
     align-content: center;
     display: flex;
 }
 
-.content-item {
-    width: 20vw;
-    font: var(--telekom-text-style-body);
-}
-
-.content-item-header {
-    font: var(--telekom-text-style-heading-4);
-    margin: 0px 0 16px 0;
-}
-
-.content-footer-item {
+.card-footer-item {
     margin: 5px 10px 5px 0;
 }
 

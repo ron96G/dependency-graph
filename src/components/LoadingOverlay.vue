@@ -32,7 +32,7 @@ watch(() => props.logs, () => {
 
 
 <template >
-    <div id="wrapper" v-if="show">
+    <div id="loading-wrapper" v-if="show">
         <div id="content">
 
             <scale-loading-spinner v-if="props.type == 'spinner'" size="large" text="Loading ..."
@@ -52,7 +52,7 @@ watch(() => props.logs, () => {
 
 
 <style scoped>
-#wrapper {
+#loading-wrapper {
     display: block;
     height: 100vh;
     position: relative

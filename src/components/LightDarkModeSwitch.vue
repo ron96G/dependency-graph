@@ -12,8 +12,8 @@ function switchMode() {
 
 
 <template>
-    <div id="content">
-        <scale-icon-action-light-dark-mode id="content-item" @click="switchMode" size="36"
+    <div id="light-dark-mode-switch-wrapper">
+        <scale-icon-action-light-dark-mode id="light-dark-mode-switch" @click="switchMode" size="36"
             accessibility-title="switch-light-dark-mode">
         </scale-icon-action-light-dark-mode>
     </div>
@@ -21,12 +21,12 @@ function switchMode() {
 
 
 <style scoped>
-#content {
+#light-dark-mode-switch-wrapper {
     position: relative;
     z-index: 99;
 }
 
-#content-item {
+#light-dark-mode-switch {
     position: absolute;
     top: 0px;
     right: 0px;
